@@ -73,6 +73,17 @@ enum session_period
     Rectangle
 };
 
+enum intraday_session_size
+{
+    Session1Hour,
+    Session2Hours,
+    Session3Hours,
+    Session4Hours,
+    Session6Hours,
+    Session8Hours,
+    Session12Hours,
+};
+
 enum sat_sun_solution
 {
     Saturday_Sunday_Normal_Days,    // Normal sessions
@@ -204,25 +215,30 @@ input int            AlertArrowWidthGC        = 1;               // AlertArrowWi
 
 input group "Intraday settings"
 input string ____Intraday_settings = "================";
-input bool           EnableIntradaySession1      = true;
-input string         IntradaySession1StartTime   = "00:00";
-input string         IntradaySession1EndTime     = "06:00";
-input color_scheme   IntradaySession1ColorScheme = Blue_to_Red;
-
-input bool           EnableIntradaySession2      = true;
-input string         IntradaySession2StartTime   = "06:00";
-input string         IntradaySession2EndTime     = "12:00";
-input color_scheme   IntradaySession2ColorScheme = Red_to_Green;
-
-input bool           EnableIntradaySession3      = true;
-input string         IntradaySession3StartTime   = "12:00";
-input string         IntradaySession3EndTime     = "18:00";
-input color_scheme   IntradaySession3ColorScheme = Green_to_Blue;
-
-input bool           EnableIntradaySession4      = true;
-input string         IntradaySession4StartTime   = "18:00";
-input string         IntradaySession4EndTime     = "00:00";
-input color_scheme   IntradaySession4ColorScheme = Yellow_to_Cyan;
+input bool                   EnableIntradaySession      = true;
+input intraday_session_size  IntradaySessionSize        = Session6Hours;
+input color_scheme           IntradaySessionColorScheme = Single_Color;
+// 1 Hour
+string IntradaySessionStartTime1Hour   = "00:00,01:00,02:00,03:00,04:00,05:00,06:00,07:00,08:00,09:00,10:00,11:00,12:00,13:00,14:00,15:00,16:00,17:00,18:00,19:00,20:00,21:00,22:00,23:00";
+string IntradaySessionEndTime1Hour     = "01:00,02:00,03:00,04:00,05:00,06:00,07:00,08:00,09:00,10:00,11:00,12:00,13:00,14:00,15:00,16:00,17:00,18:00,19:00,20:00,21:00,22:00,23:00,00:00";
+// 2 Hours
+string IntradaySessionStartTime2Hours  = "00:00,02:00,04:00,06:00,08:00,10:00,12:00,14:00,16:00,18:00,20:00,22:00";
+string IntradaySessionEndTime2Hours    = "02:00,04:00,06:00,08:00,10:00,12:00,14:00,16:00,18:00,20:00,22:00,00:00";
+// 3 Hours
+string IntradaySessionStartTime3Hours  = "00:00,03:00,06:00,09:00,12:00,15:00,18:00,21:00";
+string IntradaySessionEndTime3Hours    = "03:00,06:00,09:00,12:00,15:00,18:00,21:00,00:00";
+// 4 Hours
+string IntradaySessionStartTime4Hours  = "00:00,04:00,08:00,12:00,16:00,20:00";
+string IntradaySessionEndTime4Hours    = "04:00,08:00,12:00,16:00,20:00,00:00";
+// 6 Hours
+string IntradaySessionStartTime6Hours  = "00:00,06:00,12:00,18:00";
+string IntradaySessionEndTime6Hours    = "06:00,12:00,18:00,00:00";
+// 8 Hours
+string IntradaySessionStartTime8Hours  = "00:00,08:00,16:00";
+string IntradaySessionEndTime8Hours    = "08:00,16:00,00:00";
+// 12 Hours
+string IntradaySessionStartTime12Hours = "00:00,12:00";
+string IntradaySessionEndTime12Hours   = "12:00,00:00";
 
 input group "Miscellaneous"
 input string ____Miscellaneous = "================";
@@ -254,13 +270,13 @@ bar_direction PreviousBarDirection = Neutral;
 bool NeedToReviewColors = false;
 
 // For intraday sessions' start and end times.
-int IDStartHours[4];
-int IDStartMinutes[4];
-int IDStartTime[4]; // Stores IDStartHours x 60 + IDStartMinutes for comparison purposes.
-int IDEndHours[4];
-int IDEndMinutes[4];
-int IDEndTime[4];   // Stores IDEndHours x 60 + IDEndMinutes for comparison purposes.
-color_scheme IDColorScheme[4];
+int IDStartHours[48];
+int IDStartMinutes[48];
+int IDStartTime[48]; // Stores IDStartHours x 60 + IDStartMinutes for comparison purposes.
+int IDEndHours[48];
+int IDEndMinutes[48];
+int IDEndTime[48];   // Stores IDEndHours x 60 + IDEndMinutes for comparison purposes.
+color_scheme IDColorScheme[48];
 bool IntradayCheckPassed = false;
 int IntradaySessionCount = 0;
 int _SessionsToCount;
@@ -343,22 +359,60 @@ int OnInit()
             InitFailed = true; // Soft INIT_FAILED.
         }
     }
-    else if (Session == Intraday)
+    else if (Session == Intraday && EnableIntradaySession)
     {
-        if (Period() > PERIOD_M15)
-        {
-            string alert_text = "Timeframe should not be higher than M15 for an Intraday sessions.";
-            if (!DisableAlertsOnWrongTimeframes) Alert(alert_text);
-            else Print("Initialization failed: " + alert_text);
-            InitFailed = true; // Soft INIT_FAILED.
-        }
-
         // Check if intraday user settings are valid.
         IntradaySessionCount = 0;
-        if (!CheckIntradaySession(EnableIntradaySession1, IntradaySession1StartTime, IntradaySession1EndTime, IntradaySession1ColorScheme)) return INIT_PARAMETERS_INCORRECT;
-        if (!CheckIntradaySession(EnableIntradaySession2, IntradaySession2StartTime, IntradaySession2EndTime, IntradaySession2ColorScheme)) return INIT_PARAMETERS_INCORRECT;
-        if (!CheckIntradaySession(EnableIntradaySession3, IntradaySession3StartTime, IntradaySession3EndTime, IntradaySession3ColorScheme)) return INIT_PARAMETERS_INCORRECT;
-        if (!CheckIntradaySession(EnableIntradaySession4, IntradaySession4StartTime, IntradaySession4EndTime, IntradaySession4ColorScheme)) return INIT_PARAMETERS_INCORRECT;
+        string IntradaySessionStartTimeStr = IntradaySessionStartTime6Hours;
+        string IntradaySessionEndTimeStr = IntradaySessionEndTime6Hours;
+        switch (IntradaySessionSize) {
+            case Session1Hour:
+                IntradaySessionStartTimeStr = IntradaySessionStartTime1Hour;
+                IntradaySessionEndTimeStr = IntradaySessionEndTime1Hour;
+                break;
+            case Session2Hours:
+                IntradaySessionStartTimeStr = IntradaySessionStartTime2Hours;
+                IntradaySessionEndTimeStr = IntradaySessionEndTime2Hours;
+                break;
+            case Session3Hours:
+                IntradaySessionStartTimeStr = IntradaySessionStartTime3Hours;
+                IntradaySessionEndTimeStr = IntradaySessionEndTime3Hours;
+                break;
+            case Session4Hours:
+                IntradaySessionStartTimeStr = IntradaySessionStartTime4Hours;
+                IntradaySessionEndTimeStr = IntradaySessionEndTime4Hours;
+                break;
+            case Session6Hours:
+                IntradaySessionStartTimeStr = IntradaySessionStartTime6Hours;
+                IntradaySessionEndTimeStr = IntradaySessionEndTime6Hours;
+                break;
+            case Session8Hours:
+                IntradaySessionStartTimeStr = IntradaySessionStartTime8Hours;
+                IntradaySessionEndTimeStr = IntradaySessionEndTime8Hours;
+                break;
+            case Session12Hours:
+                IntradaySessionStartTimeStr = IntradaySessionStartTime12Hours;
+                IntradaySessionEndTimeStr = IntradaySessionEndTime12Hours;
+                break;
+        }
+
+        string startTimes[];
+        string endTimes[];
+        Print("####################################################");
+        Print("########### Intraday Start and End Times ###########");
+        Print(IntradaySessionStartTimeStr);
+        Print(IntradaySessionEndTimeStr);
+        StringSplit(IntradaySessionStartTimeStr, ',', startTimes);
+        StringSplit(IntradaySessionEndTimeStr, ',', endTimes);
+        Print(ArraySize(startTimes));
+        Print(ArraySize(endTimes));
+
+        for (int i = 0; i < ArraySize(startTimes); i++)
+        {
+            if (!CheckIntradaySession(EnableIntradaySession, startTimes[i], endTimes[i], IntradaySessionColorScheme)) {
+                return INIT_PARAMETERS_INCORRECT;
+            }
+        }
 
         // Warn user about Intraday mode
         if (IntradaySessionCount == 0)
@@ -1002,48 +1056,47 @@ datetime PutDot(const double price, const int start_bar, const int range, const 
         int offset1, offset2;
         // Using 3 as a step for color switching because MT4 has buggy invalid color codes that mess up with the chart.
         // Anyway, the number of supported colors is much lower than we get here, even with step = 3.
-        switch (CurrentColorScheme)
-        {
-        case Blue_to_Red:
-            colour = 0xFF0000; // clrBlue;
-            offset1 = 0x030000;
-            offset2 = 0x000003;
-            break;
-        case Red_to_Green:
-            colour = 0x0000FF; // clrDarkRed;
-            offset1 = 0x000003;
-            offset2 = 0x000300;
-            break;
-        case Green_to_Blue:
-            colour = 0x00FF00; // clrDarkGreen;
-            offset1 = 0x000300;
-            offset2 = 0x030000;
-            break;
-        case Yellow_to_Cyan:
-            colour = 0x00FFFF; // clrYellow;
-            offset1 = 0x000003;
-            offset2 = 0x030000;
-            break;
-        case Magenta_to_Yellow:
-            colour = 0xFF00FF; // clrMagenta;
-            offset1 = 0x030000;
-            offset2 = 0x000300;
-            break;
-        case Cyan_to_Magenta:
-            colour = 0xFFFF00; // clrCyan;
-            offset1 = 0x000300;
-            offset2 = 0x000003;
-            break;
-        case Single_Color:
-            colour = SingleColor;
-            offset1 = 0;
-            offset2 = 0;
-            break;
-        default:
-            colour = SingleColor;
-            offset1 = 0;
-            offset2 = 0;
-            break;
+        switch (CurrentColorScheme) {
+            case Blue_to_Red:
+                colour = 0xFF0000; // clrBlue;
+                offset1 = 0x030000;
+                offset2 = 0x000003;
+                break;
+            case Red_to_Green:
+                colour = 0x0000FF; // clrDarkRed;
+                offset1 = 0x000003;
+                offset2 = 0x000300;
+                break;
+            case Green_to_Blue:
+                colour = 0x00FF00; // clrDarkGreen;
+                offset1 = 0x000300;
+                offset2 = 0x030000;
+                break;
+            case Yellow_to_Cyan:
+                colour = 0x00FFFF; // clrYellow;
+                offset1 = 0x000003;
+                offset2 = 0x030000;
+                break;
+            case Magenta_to_Yellow:
+                colour = 0xFF00FF; // clrMagenta;
+                offset1 = 0x030000;
+                offset2 = 0x000300;
+                break;
+            case Cyan_to_Magenta:
+                colour = 0xFFFF00; // clrCyan;
+                offset1 = 0x000300;
+                offset2 = 0x000003;
+                break;
+            case Single_Color:
+                colour = SingleColor;
+                offset1 = 0;
+                offset2 = 0;
+                break;
+            default:
+                colour = SingleColor;
+                offset1 = 0;
+                offset2 = 0;
+                break;
         }
 
         // No need to do these calculations if plain color is used.
