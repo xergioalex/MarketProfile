@@ -398,14 +398,8 @@ int OnInit()
 
         string startTimes[];
         string endTimes[];
-        Print("####################################################");
-        Print("########### Intraday Start and End Times ###########");
-        Print(IntradaySessionStartTimeStr);
-        Print(IntradaySessionEndTimeStr);
         StringSplit(IntradaySessionStartTimeStr, ',', startTimes);
         StringSplit(IntradaySessionEndTimeStr, ',', endTimes);
-        Print(ArraySize(startTimes));
-        Print(ArraySize(endTimes));
 
         for (int i = 0; i < ArraySize(startTimes); i++)
         {
